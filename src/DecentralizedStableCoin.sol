@@ -3,15 +3,16 @@ pragma solidity ^0.8.18;
 
 import {ERC20, ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-/*
+
+/**
  * @title DecentralizedStableCoin
  * @author GrayJiang
- * Collateral: Exogenous
+ * @notice Collateral: Exogenous
  * Minting (Stability Mechanism): Decentralized (Algorithmic)
  * Value (Relative Stability): Anchored (Pegged to USD)
  * Collateral Type: Crypto
  *
- * This is the contract meant to be owned by DSCEngine. It is a ERC20 token that can be minted and burned by the DSCEngine smart contract.
+ * @dev This is the contract meant to be owned by DSCEngine. It is a ERC20 token that can be minted and burned by the DSCEngine smart contract.
  */
 
 contract DecentralizedStableCoin is ERC20Burnable, Ownable {
