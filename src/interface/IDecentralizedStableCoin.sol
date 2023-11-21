@@ -14,6 +14,14 @@ interface IDecentralizedStableCoin {
     function depositCollateral(address tokenCollateralAddr, uint256 amountCollateral) external;
     function redeemCollaternalForDsc() external;
     function redeemCollaternal() external;
+
+    /**
+     *
+     * @param amountCollateral The amount of collateral to min't
+     * @notice must have more collateral than the minimum collateral ratio
+     */
+    function mintDsc(uint256 amountCollateral) external;
     function burnDsc() external;
     function liquidate() external;
+    function getHealthFactor() external view returns (uint256);
 }

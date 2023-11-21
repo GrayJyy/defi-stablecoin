@@ -5,6 +5,7 @@ import {IDecentralizedStableCoin} from "./interface/IDecentralizedStableCoin.sol
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title DSCEngine
@@ -27,8 +28,12 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
     error DSCEngine__TheAddressListLengthNotMatch();
     error DSCEngine_TransferFromFailed();
 
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
     mapping(address token => address priceFeed) private s_priceFeedsMap;
     mapping(address user => mapping(address token => uint256 amount)) private s_collatralDepositedMap;
+    mapping(address user => uint256 amountDscMinted) private s_DscMintedMap;
+    address[] private s_tokenCollateralAddrList;
     DecentralizedStableCoin private immutable i_dsc;
 
     ////////////////////
@@ -52,6 +57,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
         if (tokenCollateralAddrList_.length != priceFeedAddrList_.length) {
             revert DSCEngine__TheAddressListLengthNotMatch();
         }
+        s_tokenCollateralAddrList = tokenCollateralAddrList_;
         for (uint256 i = 0; i < tokenCollateralAddrList_.length; i++) {
             s_priceFeedsMap[tokenCollateralAddrList_[i]] = priceFeedAddrList_[i];
         }
@@ -73,6 +79,24 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
         }
     }
 
+    function mintDsc(uint256 _amountCollatral) public override {
+        s_DscMintedMap[msg.sender] += _amountCollatral;
+    }
+
+    function _getAccountInformation(address _user)
+        internal
+        view
+        returns (uint256 _totalDscMinted, uint256 _collaternalValueInUsd)
+    {
+        _totalDscMinted = s_DscMintedMap[_user];
+    }
+
+    function _revertIfHeathFactorIsBroken(address _user) internal view {}
+
+    function getHealthFactor() public view override returns (uint256) {
+        (uint256 _totalDscMinted, uint256 _collaternalValueInUsd) = _getAccountInformation(msg.sender);
+    }
+
     ////////////////////
     // Getter Methods //
     ////////////////////
@@ -82,5 +106,19 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
 
     function dsc() public view returns (address) {
         return address(i_dsc);
+    }
+
+    function getAccountCollateralValue(address _user) public view returns (uint256 _totalCollateralValueInUsd) {
+        for (uint256 i = 0; i < s_tokenCollateralAddrList.length; i++) {
+            address _token = s_tokenCollateralAddrList[i];
+            uint256 _amount = s_collatralDepositedMap[_user][_token];
+            _totalCollateralValueInUsd += getUsdValue(_token, _amount);
+        }
+    }
+
+    function getUsdValue(address _token, uint256 _amount) public view returns (uint256) {
+        AggregatorV3Interface _priceFeed = AggregatorV3Interface(s_priceFeedsMap[_token]);
+        (, int256 _price,,,) = _priceFeed.latestRoundData();
+        return uint256(_price) * ADDITIONAL_FEED_PRECISION * _amount / PRECISION;
     }
 }
