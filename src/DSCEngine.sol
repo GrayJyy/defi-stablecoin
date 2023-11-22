@@ -28,6 +28,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     error DSCEngine__TheAddressListLengthNotMatch();
     error DSCEngine_TransferFromFailed();
     error DSCEngine__HealthFactorIsBroken(uint256 userHeathFactor);
+    error DSCEngine__MintFailed();
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
@@ -92,6 +93,11 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
 
     function mintDsc(uint256 _amountCollatral) public override {
         s_DscMintedMap[msg.sender] += _amountCollatral;
+        _revertIfHeathFactorIsBroken(msg.sender);
+        bool _success = i_dsc.mint(msg.sender, _amountCollatral);
+        if (!_success) {
+            revert DSCEngine__MintFailed();
+        }
     }
 
     function _getAccountInformation(address _user)
