@@ -22,14 +22,18 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
  * for minting and redeeming DSC, as well as depositing and withdrawing collateral.
  * @notice This contract is based on the MakerDAO DSS system
  */
-contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
+contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     error DSCEngine__AmountMustBeMoreThanZero();
     error DSCEngine__NotTheAllowedToken();
     error DSCEngine__TheAddressListLengthNotMatch();
     error DSCEngine_TransferFromFailed();
+    error DSCEngine__HealthFactorIsBroken(uint256 userHeathFactor);
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
+    uint256 private constant LIQUIDATION_RATIO = 50;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MINIMUN_HEALTH_FACTOR = 1;
     mapping(address token => address priceFeed) private s_priceFeedsMap;
     mapping(address user => mapping(address token => uint256 amount)) private s_collatralDepositedMap;
     mapping(address user => uint256 amountDscMinted) private s_DscMintedMap;
@@ -79,6 +83,13 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
         }
     }
 
+    function depositCollateralAndMintDsc() public override {}
+
+    function redeemCollaternalForDsc() public override {}
+    function redeemCollaternal() public override {}
+    function burnDsc() public override {}
+    function liquidate() public override {}
+
     function mintDsc(uint256 _amountCollatral) public override {
         s_DscMintedMap[msg.sender] += _amountCollatral;
     }
@@ -89,23 +100,33 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
         returns (uint256 _totalDscMinted, uint256 _collaternalValueInUsd)
     {
         _totalDscMinted = s_DscMintedMap[_user];
+        _collaternalValueInUsd = getAccountCollateralValue(_user);
     }
 
-    function _revertIfHeathFactorIsBroken(address _user) internal view {}
+    function _revertIfHeathFactorIsBroken(address _user) internal view {
+        uint256 _userHeathFactor = _healthFactor(_user);
+        if (_userHeathFactor < MINIMUN_HEALTH_FACTOR) {
+            revert DSCEngine__HealthFactorIsBroken(_userHeathFactor);
+        }
+    }
 
-    function getHealthFactor() public view override returns (uint256) {
-        (uint256 _totalDscMinted, uint256 _collaternalValueInUsd) = _getAccountInformation(msg.sender);
+    function _healthFactor(address _user) internal view returns (uint256 _userHeathFactor) {
+        (uint256 _totalDscMinted, uint256 _collaternalValueInUsd) = _getAccountInformation(_user);
+        uint256 collateralAdjustedForRatio = _collaternalValueInUsd * LIQUIDATION_RATIO / LIQUIDATION_PRECISION;
+        _userHeathFactor = collateralAdjustedForRatio * PRECISION / _totalDscMinted;
     }
 
     ////////////////////
     // Getter Methods //
     ////////////////////
+    function getHealthFactor() public view override returns (uint256 healthFactor) {}
+
     function priceFeeds(address _tokenAddr) public view returns (address _priceFeed) {
-        return s_priceFeedsMap[_tokenAddr];
+        _priceFeed = s_priceFeedsMap[_tokenAddr];
     }
 
-    function dsc() public view returns (address) {
-        return address(i_dsc);
+    function dsc() public view returns (address _dsc) {
+        _dsc = address(i_dsc);
     }
 
     function getAccountCollateralValue(address _user) public view returns (uint256 _totalCollateralValueInUsd) {
@@ -116,9 +137,9 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard, IERC20 {
         }
     }
 
-    function getUsdValue(address _token, uint256 _amount) public view returns (uint256) {
+    function getUsdValue(address _token, uint256 _amount) public view returns (uint256 _usdValue) {
         AggregatorV3Interface _priceFeed = AggregatorV3Interface(s_priceFeedsMap[_token]);
         (, int256 _price,,,) = _priceFeed.latestRoundData();
-        return uint256(_price) * ADDITIONAL_FEED_PRECISION * _amount / PRECISION;
+        _usdValue = uint256(_price) * ADDITIONAL_FEED_PRECISION * _amount / PRECISION;
     }
 }
