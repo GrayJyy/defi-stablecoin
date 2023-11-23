@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.18;
 
 interface IDecentralizedStableCoin {
     event CollateralDeposited(address indexed user, address tokenCollateralAddr, uint256 amountCollateral);
