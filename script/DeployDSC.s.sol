@@ -6,8 +6,6 @@ import {HelperConfig} from "./HelperConfig.s.sol";
 import {DecentralizedStableCoin} from "../src/DecentralizedStableCoin.sol";
 
 contract DeployDSC is Script {
-    DecentralizedStableCoin public dsc;
-
     constructor() {}
 
     function run() external returns (DecentralizedStableCoin dsc, HelperConfig helperConfig) {
