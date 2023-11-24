@@ -18,26 +18,38 @@ contract DSCEngineTest is Test {
     address public weth;
     address public wbtc;
     uint256 public deployerKey;
-    address public initOwner;
     address public user = makeAddr("user");
     uint256 public constant STARTING_BALANCE = 100 ether;
+    uint256 public constant AMOUNT_COLLATERAL = 10 ether;
 
     constructor() {}
 
     function setUp() external {
         DeployDSC deployer = new DeployDSC();
         (dsc, dscEngine, helperConfig) = deployer.run();
-        (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey, initOwner) = helperConfig.activeNetworkConfig();
+        (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey,) = helperConfig.activeNetworkConfig();
         if (block.chainid == 31337) {
-            vm.deal(user, STARTING_BALANCE);
+            vm.deal(user, STARTING_BALANCE); // prank and give user some money
         }
         ERC20Mock(weth).mint(user, STARTING_BALANCE);
         ERC20Mock(wbtc).mint(user, STARTING_BALANCE);
     }
 
-    // function testConstructor_ShouldReverts_WhenLengthNotEquall() public {
-    //     address[] memory tokenAddresses = new address[](1);
-    //     address[] memory priceFeedAddresses = new address[](2);
-    //     vm.expectRevert(DSCEngine.DSCEngine__TheAddressListLengthNotMatch.selector);
-    // }
+    function testGetUsdValue_ShouldCalculatesCorrectly_WhenParamsAreRight() public {
+        uint256 amount = 1e18;
+        uint256 expectedValue = 1e18 * 2000e8 * 1e10 / 1e18;
+        uint256 actualValue = dscEngine.getUsdValue(weth, amount);
+        assertEq(actualValue, expectedValue);
+    }
+
+    function testDepositCollateral_ShouldReverts_WhenAmountLessThanZero() public {
+        //setUp
+        //execution
+        //assert
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dscEngine), AMOUNT_COLLATERAL);
+        vm.expectRevert(DSCEngine.DSCEngine__AmountMustBeMoreThanZero.selector);
+        dscEngine.depositCollateral(weth, 0);
+        vm.stopPrank();
+    }
 }
