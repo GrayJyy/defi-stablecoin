@@ -18,6 +18,7 @@ contract DSCEngineTest is Test {
     address public weth;
     address public wbtc;
     uint256 public deployerKey;
+    address public initOwner;
     address public user = makeAddr("user");
     uint256 public constant STARTING_BALANCE = 100 ether;
 
@@ -26,7 +27,7 @@ contract DSCEngineTest is Test {
     function setUp() external {
         DeployDSC deployer = new DeployDSC();
         (dsc, dscEngine, helperConfig) = deployer.run();
-        (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey) = helperConfig.activeNetworkConfig();
+        (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey, initOwner) = helperConfig.activeNetworkConfig();
         if (block.chainid == 31337) {
             vm.deal(user, STARTING_BALANCE);
         }

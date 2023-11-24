@@ -9,22 +9,28 @@ import {DSCEngine} from "../src/DSCEngine.sol";
 contract DeployDSC is Script {
     address[] public tokenAddresses;
     address[] public priceFeedAddresses;
+    address public constant INITIAL_OWNER = 0xF42f4b5cb102b3f5A180E08E6BA726c0179D172E;
 
     constructor() {}
 
     function run() external returns (DecentralizedStableCoin dsc, DSCEngine dscEngine, HelperConfig helperConfig) {
         helperConfig = new HelperConfig();
-        (address wethUsdPriceFeed, address wbtcUsdPriceFeed, address weth, address wbtc, uint256 deployerKey) =
-            helperConfig.activeNetworkConfig();
+        (
+            address wethUsdPriceFeed,
+            address wbtcUsdPriceFeed,
+            address weth,
+            address wbtc,
+            uint256 deployerKey,
+            address initOwner
+        ) = helperConfig.activeNetworkConfig();
         tokenAddresses = [weth, wbtc];
         priceFeedAddresses = [wethUsdPriceFeed, wbtcUsdPriceFeed];
         console.log("wethUsdPriceFeed: %s", wethUsdPriceFeed);
         console.log("wbtcUsdPriceFeed: %s", wbtcUsdPriceFeed);
         console.log("weth: %s", weth);
         console.log("wbtc: %s", wbtc);
-        console.log("deployerKey: %s", deployerKey);
         vm.startBroadcast(deployerKey);
-        dsc = new DecentralizedStableCoin();
+        dsc = new DecentralizedStableCoin(initOwner);
         dscEngine = new DSCEngine(tokenAddresses,priceFeedAddresses,address(dsc));
         dsc.transferOwnership(address(dscEngine)); // cuz the dsc is Ownable, so we need to transfer the ownership to the dscEngine
         vm.stopBroadcast();
