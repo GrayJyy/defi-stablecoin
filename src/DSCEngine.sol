@@ -84,17 +84,73 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
         }
     }
 
-    function depositCollateralAndMintDsc() public override {}
+    /**
+     *
+     * @param _acceptedToken  The address of the collateral token to deposit
+     * @param _amountCollateral  The amount of collateral to deposit
+     * @param _expectedMint  The amount of DSC to mint
+     * @notice This function will deposit collateral and mint DSC
+     */
+    function depositCollateralAndMintDsc(address _acceptedToken, uint256 _amountCollateral, uint256 _expectedMint)
+        public
+        override
+    {
+        depositCollateral(_acceptedToken, _amountCollateral);
+        mintDsc(_expectedMint);
+    }
 
-    function redeemCollaternalForDsc() public override {}
-    function redeemCollaternal() public override {}
-    function burnDsc() public override {}
+    /**
+     *
+     * @param _expectedToken  The address of the collateral token to redeem
+     * @param _expectedCollaternalAmount  The amount of collateral to redeem
+     * @param _amountToBurn  The amount of DSC to burn
+     * @notice This function will burn DSC and redeem collateral
+     */
+    function redeemCollaternalForDsc(address _expectedToken, uint256 _expectedCollaternalAmount, uint256 _amountToBurn)
+        public
+        override
+    {
+        burnDsc(_amountToBurn);
+        redeemCollaternal(_expectedToken, _expectedCollaternalAmount);
+    }
+
+    function redeemCollaternal(address _expectedToken, uint256 _expectedCollaternalAmount)
+        public
+        override
+        onlyAmountMoreThanZero(_expectedCollaternalAmount)
+        nonReentrant
+    {
+        s_collatralDepositedMap[msg.sender][_expectedToken] -= _expectedCollaternalAmount; // the new version solidity will check the underflow and revert the wrong operation
+        emit CollateralRedeemed(msg.sender, _expectedToken, _expectedCollaternalAmount);
+        (bool success) = IERC20(_expectedToken).transfer(msg.sender, _expectedCollaternalAmount);
+        if (!success) {
+            revert DSCEngine_TransferFromFailed();
+        }
+        _revertIfHeathFactorIsBroken(msg.sender);
+    }
+
+    /**
+     *
+     * @param _amountToBurn The amount of DSC to burn
+     * @notice before we burn the DSC,we should get the DSC back from the user,oterwise the burned DSC is not the user's but the contract's
+     */
+    function burnDsc(uint256 _amountToBurn) public override {
+        s_DscMintedMap[msg.sender] -= _amountToBurn;
+        bool success = IERC20(address(i_dsc)).transferFrom(msg.sender, address(this), _amountToBurn);
+        if (!success) {
+            // actually,this case will never happen,cuz the transferFrom will revert if the balance is not enough
+            revert DSCEngine_TransferFromFailed();
+        }
+        i_dsc.burn(_amountToBurn);
+        _revertIfHeathFactorIsBroken(msg.sender); // actually,i don't think this would ever hit
+    }
+
     function liquidate() public override {}
 
-    function mintDsc(uint256 _amountCollatral) public override {
-        s_DscMintedMap[msg.sender] += _amountCollatral;
+    function mintDsc(uint256 _expectedMint) public override {
+        s_DscMintedMap[msg.sender] += _expectedMint;
         _revertIfHeathFactorIsBroken(msg.sender);
-        bool _success = i_dsc.mint(msg.sender, _amountCollatral);
+        bool _success = i_dsc.mint(msg.sender, _expectedMint);
         if (!_success) {
             revert DSCEngine__MintFailed();
         }

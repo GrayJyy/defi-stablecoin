@@ -3,8 +3,10 @@ pragma solidity ^0.8.18;
 
 interface IDecentralizedStableCoin {
     event CollateralDeposited(address indexed user, address tokenCollateralAddr, uint256 amountCollateral);
+    event CollateralRedeemed(address indexed user, address tokenCollateralAddr, uint256 amountCollateral);
 
-    function depositCollateralAndMintDsc() external;
+    function depositCollateralAndMintDsc(address acceptedToken, uint256 amountCollateral, uint256 expectedMint)
+        external;
 
     /**
      *
@@ -12,8 +14,9 @@ interface IDecentralizedStableCoin {
      * @param amountCollateral The amount of collateral to deposit
      */
     function depositCollateral(address tokenCollateralAddr, uint256 amountCollateral) external;
-    function redeemCollaternalForDsc() external;
-    function redeemCollaternal() external;
+    function redeemCollaternalForDsc(address expectedToken, uint256 expectedCollaternalAmount, uint256 amountToBurn)
+        external;
+    function redeemCollaternal(address expectedToken, uint256 expectedCollaternalAmount) external;
 
     /**
      *
@@ -21,7 +24,7 @@ interface IDecentralizedStableCoin {
      * @notice must have more collateral than the minimum collateral ratio
      */
     function mintDsc(uint256 amountCollateral) external;
-    function burnDsc() external;
+    function burnDsc(uint256 amountToBurn) external;
     function liquidate() external;
     function getHealthFactor() external view returns (uint256);
 }
