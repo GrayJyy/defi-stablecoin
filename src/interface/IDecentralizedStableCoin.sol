@@ -3,7 +3,9 @@ pragma solidity ^0.8.18;
 
 interface IDecentralizedStableCoin {
     event CollateralDeposited(address indexed user, address tokenCollateralAddr, uint256 amountCollateral);
-    event CollateralRedeemed(address indexed user, address tokenCollateralAddr, uint256 amountCollateral);
+    event CollateralRedeemed(
+        address indexed from, address indexed to, address tokenCollateralAddr, uint256 amountCollateral
+    );
 
     function depositCollateralAndMintDsc(address acceptedToken, uint256 amountCollateral, uint256 expectedMint)
         external;
@@ -25,6 +27,6 @@ interface IDecentralizedStableCoin {
      */
     function mintDsc(uint256 amountCollateral) external;
     function burnDsc(uint256 amountToBurn) external;
-    function liquidate() external;
-    function getHealthFactor() external view returns (uint256);
+    function liquidate(address collateral, address liquidatedUser, uint256 debtToCover) external;
+    // function getHealthFactor() external view returns (uint256);
 }

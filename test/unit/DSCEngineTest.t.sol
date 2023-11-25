@@ -43,9 +43,6 @@ contract DSCEngineTest is Test {
     }
 
     function testDepositCollateral_ShouldReverts_WhenAmountLessThanZero() public {
-        //setUp
-        //execution
-        //assert
         vm.startPrank(user);
         ERC20Mock(weth).approve(address(dscEngine), AMOUNT_COLLATERAL);
         vm.expectRevert(DSCEngine.DSCEngine__AmountMustBeMoreThanZero.selector);

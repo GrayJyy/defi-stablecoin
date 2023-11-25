@@ -29,12 +29,15 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     error DSCEngine_TransferFromFailed();
     error DSCEngine__HealthFactorIsBroken(uint256 userHeathFactor);
     error DSCEngine__MintFailed();
+    error DSCEngine__HealthFactorIsSafe(uint256 userHeathFactor);
+    error DSCEngine__HealthFactorNotImproved();
 
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_RATIO = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MINIMUN_HEALTH_FACTOR = 1;
+    uint256 private constant MINIMUN_HEALTH_FACTOR = 1e18;
+    uint256 private constant LIQUIDATION_BONUS = 10;
     mapping(address token => address priceFeed) private s_priceFeedsMap;
     mapping(address user => mapping(address token => uint256 amount)) private s_collatralDepositedMap;
     mapping(address user => uint256 amountDscMinted) private s_DscMintedMap;
@@ -120,9 +123,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
         onlyAmountMoreThanZero(_expectedCollaternalAmount)
         nonReentrant
     {
-        s_collatralDepositedMap[msg.sender][_expectedToken] -= _expectedCollaternalAmount; // the new version solidity will check the underflow and revert the wrong operation
-        emit CollateralRedeemed(msg.sender, _expectedToken, _expectedCollaternalAmount);
-        (bool success) = IERC20(_expectedToken).transfer(msg.sender, _expectedCollaternalAmount);
+        bool success = _redeemCollateral(_expectedToken, _expectedCollaternalAmount, msg.sender, msg.sender);
         if (!success) {
             revert DSCEngine_TransferFromFailed();
         }
@@ -135,17 +136,41 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
      * @notice before we burn the DSC,we should get the DSC back from the user,oterwise the burned DSC is not the user's but the contract's
      */
     function burnDsc(uint256 _amountToBurn) public override {
-        s_DscMintedMap[msg.sender] -= _amountToBurn;
-        bool success = IERC20(address(i_dsc)).transferFrom(msg.sender, address(this), _amountToBurn);
-        if (!success) {
-            // actually,this case will never happen,cuz the transferFrom will revert if the balance is not enough
-            revert DSCEngine_TransferFromFailed();
-        }
-        i_dsc.burn(_amountToBurn);
+        _burnDsc(_amountToBurn, msg.sender, msg.sender);
         _revertIfHeathFactorIsBroken(msg.sender); // actually,i don't think this would ever hit
     }
 
-    function liquidate() public override {}
+    /**
+     *
+     * @param _collateral  The address of the collateral token to liquidate
+     * @param _liquidatedUser  The address of the user who has broken the heath factor to liquidate
+     * @param _debtToCover The amount of DSC we want to burn to improve the user's heath factor
+     * @dev When anyone else found a heath factor broken user,he can call this function to liquidate the broken user.
+     * First,we will check if the user's heath factor is broken,if not,we will revert.
+     * Second,we will calculate the amount of collateral which the msg.sender can get from the _debtToCover and add 10% bonus.The msg.sender wil get the amount from the _liquidatedUser who has broken the heath factor.
+     * And the msg.sender just need to burn the _debtToCover DSC to improve the heath factor.
+     */
+    function liquidate(address _collateral, address _liquidatedUser, uint256 _debtToCover)
+        public
+        override
+        onlyAmountMoreThanZero(_debtToCover)
+        nonReentrant
+    {
+        uint256 startinguserHeathFactor = _healthFactor(_liquidatedUser);
+        if (startinguserHeathFactor >= MINIMUN_HEALTH_FACTOR) {
+            revert DSCEngine__HealthFactorIsSafe(startinguserHeathFactor);
+        }
+        uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(_collateral, _debtToCover);
+        uint256 bonusCollateral = tokenAmountFromDebtCovered * LIQUIDATION_BONUS / LIQUIDATION_PRECISION; // addition 10% bonus
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
+        _redeemCollateral(_collateral, totalCollateralToRedeem, _liquidatedUser, msg.sender);
+        _burnDsc(_debtToCover, _liquidatedUser, msg.sender);
+        uint256 endingUserHeathFactor = _healthFactor(_liquidatedUser);
+        if (endingUserHeathFactor < MINIMUN_HEALTH_FACTOR) {
+            revert DSCEngine__HealthFactorNotImproved();
+        }
+        _revertIfHeathFactorIsBroken(msg.sender);
+    }
 
     function mintDsc(uint256 _expectedMint) public override {
         s_DscMintedMap[msg.sender] += _expectedMint;
@@ -154,6 +179,33 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
         if (!_success) {
             revert DSCEngine__MintFailed();
         }
+    }
+
+    /**
+     *
+     * @param _amountToBurn  The amount of DSC to burn
+     * @param _onBehalfOf  The address of the user who's heath factor is broken and need to be liquidated
+     * @param _dscFrom  The user who found the broken heath factor and want to liquidate the broken user
+     * @dev Low-level internal function do not call unless the public function calling it is checking for heath factor being broken
+     */
+    function _burnDsc(uint256 _amountToBurn, address _onBehalfOf, address _dscFrom) internal {
+        s_DscMintedMap[_onBehalfOf] -= _amountToBurn;
+        bool success = IERC20(address(i_dsc)).transferFrom(_dscFrom, address(this), _amountToBurn); // get the dsc back,and at this line ,the dsc is not be burned yet
+        if (!success) {
+            // actually,this case will never happen,cuz the transferFrom will revert if the balance is not enough
+            revert DSCEngine_TransferFromFailed();
+        }
+        i_dsc.burn(_amountToBurn); // at this line,the dsc is burned(and this dsc is from the _dscFrom)
+    }
+
+    function _redeemCollateral(address _expectedToken, uint256 _expectedCollaternalAmount, address _from, address _to)
+        internal
+        returns (bool _success)
+    {
+        s_collatralDepositedMap[_from][_expectedToken] -= _expectedCollaternalAmount; // the new version solidity will check the underflow and revert the wrong operation
+        emit CollateralRedeemed(_from, _to, _expectedToken, _expectedCollaternalAmount);
+        (bool success) = IERC20(_expectedToken).transfer(_to, _expectedCollaternalAmount);
+        _success = success;
     }
 
     function _getAccountInformation(address _user)
@@ -181,7 +233,12 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     ////////////////////
     // Getter Methods //
     ////////////////////
-    function getHealthFactor() public view override returns (uint256 healthFactor) {}
+
+    function getTokenAmountFromUsd(address _collteral, uint256 _usdAmountInWei) public view returns (uint256 _amount) {
+        AggregatorV3Interface _priceFeed = AggregatorV3Interface(s_priceFeedsMap[_collteral]);
+        (, int256 _price,,,) = _priceFeed.latestRoundData();
+        _amount = _usdAmountInWei * PRECISION / uint256(_price) / ADDITIONAL_FEED_PRECISION;
+    }
 
     function priceFeeds(address _tokenAddr) public view returns (address _priceFeed) {
         _priceFeed = s_priceFeedsMap[_tokenAddr];
