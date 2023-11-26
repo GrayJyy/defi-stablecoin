@@ -32,12 +32,12 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     error DSCEngine__HealthFactorIsSafe(uint256 userHeathFactor);
     error DSCEngine__HealthFactorNotImproved();
 
-    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
-    uint256 private constant PRECISION = 1e18;
-    uint256 private constant LIQUIDATION_RATIO = 50;
-    uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MINIMUN_HEALTH_FACTOR = 1e18;
-    uint256 private constant LIQUIDATION_BONUS = 10;
+    uint256 private constant ADDITIONAL_FEED_PRECISION_1e10 = 1e10;
+    uint256 private constant PRECISION_1e18 = 1e18;
+    uint256 private constant LIQUIDATION_RATIO_50 = 50;
+    uint256 private constant LIQUIDATION_PRECISION_100 = 100;
+    uint256 private constant MINIMUN_HEALTH_FACTOR_1e18 = 1e18;
+    uint256 private constant LIQUIDATION_BONUS_10 = 10;
     mapping(address token => address priceFeed) private s_priceFeedsMap;
     mapping(address user => mapping(address token => uint256 amount)) private s_collatralDepositedMap;
     mapping(address user => uint256 amountDscMinted) private s_DscMintedMap;
@@ -157,16 +157,16 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
         nonReentrant
     {
         uint256 startinguserHeathFactor = _healthFactor(_liquidatedUser);
-        if (startinguserHeathFactor >= MINIMUN_HEALTH_FACTOR) {
+        if (startinguserHeathFactor >= MINIMUN_HEALTH_FACTOR_1e18) {
             revert DSCEngine__HealthFactorIsSafe(startinguserHeathFactor);
         }
         uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(_collateral, _debtToCover);
-        uint256 bonusCollateral = tokenAmountFromDebtCovered * LIQUIDATION_BONUS / LIQUIDATION_PRECISION; // addition 10% bonus
+        uint256 bonusCollateral = tokenAmountFromDebtCovered * LIQUIDATION_BONUS_10 / LIQUIDATION_PRECISION_100; // addition 10% bonus
         uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
         _redeemCollateral(_collateral, totalCollateralToRedeem, _liquidatedUser, msg.sender);
         _burnDsc(_debtToCover, _liquidatedUser, msg.sender);
         uint256 endingUserHeathFactor = _healthFactor(_liquidatedUser);
-        if (endingUserHeathFactor < MINIMUN_HEALTH_FACTOR) {
+        if (endingUserHeathFactor < MINIMUN_HEALTH_FACTOR_1e18) {
             revert DSCEngine__HealthFactorNotImproved();
         }
         _revertIfHeathFactorIsBroken(msg.sender);
@@ -218,15 +218,15 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
 
     function _revertIfHeathFactorIsBroken(address _user) internal view {
         uint256 _userHeathFactor = _healthFactor(_user);
-        if (_userHeathFactor < MINIMUN_HEALTH_FACTOR) {
+        if (_userHeathFactor < MINIMUN_HEALTH_FACTOR_1e18) {
             revert DSCEngine__HealthFactorIsBroken(_userHeathFactor);
         }
     }
 
     function _healthFactor(address _user) internal view returns (uint256 _userHeathFactor) {
         (uint256 _totalDscMinted, uint256 _collaternalValueInUsd) = _getAccountInformation(_user);
-        uint256 collateralAdjustedForRatio = _collaternalValueInUsd * LIQUIDATION_RATIO / LIQUIDATION_PRECISION;
-        _userHeathFactor = collateralAdjustedForRatio * PRECISION / _totalDscMinted;
+        uint256 collateralAdjustedForRatio = _collaternalValueInUsd * LIQUIDATION_RATIO_50 / LIQUIDATION_PRECISION_100;
+        _userHeathFactor = collateralAdjustedForRatio * PRECISION_1e18 / _totalDscMinted;
     }
 
     ////////////////////
@@ -236,7 +236,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     function getTokenAmountFromUsd(address _collteral, uint256 _usdAmountInWei) public view returns (uint256 _amount) {
         AggregatorV3Interface _priceFeed = AggregatorV3Interface(s_priceFeedsMap[_collteral]);
         (, int256 _price,,,) = _priceFeed.latestRoundData();
-        _amount = _usdAmountInWei * PRECISION / uint256(_price) / ADDITIONAL_FEED_PRECISION;
+        _amount = _usdAmountInWei * PRECISION_1e18 / uint256(_price) / ADDITIONAL_FEED_PRECISION_1e10;
     }
 
     function priceFeeds(address _tokenAddr) public view returns (address _priceFeed) {
@@ -258,7 +258,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     function getUsdValue(address _token, uint256 _amount) public view returns (uint256 _usdValue) {
         AggregatorV3Interface _priceFeed = AggregatorV3Interface(s_priceFeedsMap[_token]);
         (, int256 _price,,,) = _priceFeed.latestRoundData();
-        _usdValue = uint256(_price) * ADDITIONAL_FEED_PRECISION * _amount / PRECISION;
+        _usdValue = uint256(_price) * ADDITIONAL_FEED_PRECISION_1e10 * _amount / PRECISION_1e18;
     }
 
     function getTokenCollateralAddrList(uint256 _index) public view returns (address _collateral) {
@@ -275,5 +275,13 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
         returns (uint256 _totalDscMinted, uint256 _collaternalValueInUsd)
     {
         (_totalDscMinted, _collaternalValueInUsd) = _getAccountInformation(_user);
+    }
+
+    function getDscMintedAmount(address _user) public view returns (uint256 _amount) {
+        _amount = s_DscMintedMap[_user];
+    }
+
+    function getHealthFactor(address _user) public view returns (uint256 healthFactor) {
+        healthFactor = _healthFactor(_user);
     }
 }

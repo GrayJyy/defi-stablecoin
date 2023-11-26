@@ -18,9 +18,9 @@ contract HelperConfig is Script {
     }
 
     address public user = makeAddr("user");
-    uint8 public constant DECIMALS = 8;
-    int256 public constant ETH_USD_PRICE = 2000e8;
-    int256 public constant BTC_USD_PRICE = 1000e8;
+    uint8 public constant DECIMALS_8 = 8;
+    int256 public constant ETH_USD_PRICE_2000e8 = 2000e8;
+    int256 public constant BTC_USD_PRICE_1000e8 = 1000e8;
     NetworkConfig public activeNetworkConfig;
 
     constructor() {
@@ -40,14 +40,14 @@ contract HelperConfig is Script {
         }
         vm.startBroadcast();
         MockV3Aggregator ethUsdPriceFeed = new MockV3Aggregator(
-            DECIMALS,
-            ETH_USD_PRICE
+            DECIMALS_8,
+            ETH_USD_PRICE_2000e8
         );
         ERC20Mock wethMock = new ERC20Mock();
 
         MockV3Aggregator btcUsdPriceFeed = new MockV3Aggregator(
-            DECIMALS,
-            BTC_USD_PRICE
+            DECIMALS_8,
+            BTC_USD_PRICE_1000e8
         );
         ERC20Mock wbtcMock = new ERC20Mock();
         vm.stopBroadcast();

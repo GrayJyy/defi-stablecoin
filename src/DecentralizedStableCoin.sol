@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 import {ERC20, ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {console} from "forge-std/Script.sol";
 
 /**
  * @title DecentralizedStableCoin
@@ -39,10 +40,6 @@ contract DecentralizedStableCoin is ERC20Burnable, Ownable {
         }
         if (_amount < 0) {
             revert DecentralizedStableCoin__BurnAmountNegative();
-        }
-        uint256 balance = balanceOf(msg.sender);
-        if (_amount > balance) {
-            revert DecentralizedStableCoin__BurnAmountExceedsBalance();
         }
         _mint(_to, _amount);
         return true;
