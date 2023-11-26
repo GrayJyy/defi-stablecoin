@@ -204,8 +204,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
     {
         s_collatralDepositedMap[_from][_expectedToken] -= _expectedCollaternalAmount; // the new version solidity will check the underflow and revert the wrong operation
         emit CollateralRedeemed(_from, _to, _expectedToken, _expectedCollaternalAmount);
-        (bool success) = IERC20(_expectedToken).transfer(_to, _expectedCollaternalAmount);
-        _success = success;
+        (_success) = IERC20(_expectedToken).transfer(_to, _expectedCollaternalAmount);
     }
 
     function _getAccountInformation(address _user)
@@ -260,5 +259,21 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
         AggregatorV3Interface _priceFeed = AggregatorV3Interface(s_priceFeedsMap[_token]);
         (, int256 _price,,,) = _priceFeed.latestRoundData();
         _usdValue = uint256(_price) * ADDITIONAL_FEED_PRECISION * _amount / PRECISION;
+    }
+
+    function getTokenCollateralAddrList(uint256 _index) public view returns (address _collateral) {
+        _collateral = s_tokenCollateralAddrList[_index];
+    }
+
+    function getAllowedPriceFeed(address _collareatal) public view returns (address _priceFeed) {
+        _priceFeed = s_priceFeedsMap[_collareatal];
+    }
+
+    function getAccountInformation(address _user)
+        public
+        view
+        returns (uint256 _totalDscMinted, uint256 _collaternalValueInUsd)
+    {
+        (_totalDscMinted, _collaternalValueInUsd) = _getAccountInformation(_user);
     }
 }
