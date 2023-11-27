@@ -16,9 +16,9 @@ interface IDecentralizedStableCoin {
      * @param amountCollateral The amount of collateral to deposit
      */
     function depositCollateral(address tokenCollateralAddr, uint256 amountCollateral) external;
-    function redeemCollaternalForDsc(address expectedToken, uint256 expectedCollaternalAmount, uint256 amountToBurn)
+    function redeemCollateralForDsc(address expectedToken, uint256 expectedCollateralAmount, uint256 amountToBurn)
         external;
-    function redeemCollaternal(address expectedToken, uint256 expectedCollaternalAmount) external;
+    function redeemCollateral(address expectedToken, uint256 expectedCollateralAmount) external;
 
     /**
      *
