@@ -249,7 +249,7 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
-    function testCanBurnDsc() public depositedCollateralAndMintedDsc {
+    function testBurnDsc_ShouldResetsBalance_WhenBurnAllMinted() public depositedCollateralAndMintedDsc {
         vm.startPrank(user);
         dsc.approve(address(dscEngine), STARTING_BALANCE_100ether);
         dscEngine.burnDsc(STARTING_BALANCE_100ether);
