@@ -137,7 +137,7 @@ contract DSCEngine is IDecentralizedStableCoin, ReentrancyGuard {
      * @param _amountToBurn The amount of DSC to burn
      * @notice before we burn the DSC,we should get the DSC back from the user,oterwise the burned DSC is not the user's but the contract's
      */
-    function burnDsc(uint256 _amountToBurn) public override {
+    function burnDsc(uint256 _amountToBurn) public override onlyAmountMoreThanZero(_amountToBurn) {
         _burnDsc(_amountToBurn, msg.sender, msg.sender);
         _revertIfHeathFactorIsBroken(msg.sender); // actually,i don't think this would ever hit
     }

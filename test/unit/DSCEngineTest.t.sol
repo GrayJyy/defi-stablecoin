@@ -55,6 +55,14 @@ contract DSCEngineTest is Test {
         _;
     }
 
+    modifier depositedCollateralAndMintedDsc() {
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(dscEngine), AMOUNT_COLLATERAL_10ether);
+        dscEngine.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL_10ether, STARTING_BALANCE_100ether);
+        vm.stopPrank();
+        _;
+    }
+
     function setUp() external {
         DeployDSC deployer = new DeployDSC();
         (dsc, dscEngine, helperConfig) = deployer.run();
@@ -225,5 +233,28 @@ contract DSCEngineTest is Test {
     function testGetMinHealthFactor_ShouldGetsCorrectly_WhenItConfigured() public {
         uint256 expectedValue = dscEngine.getMinHealthFactor();
         assertEq(MINIMUN_HEALTH_FACTOR_1e18, expectedValue);
+    }
+
+    function testBurnDsc_ShouldReverts_WhenAmountIsNotEnough() public depositedCollateralAndMintedDsc {
+        vm.startPrank(user);
+        vm.expectRevert(DSCEngine.DSCEngine__AmountMustBeMoreThanZero.selector);
+        dscEngine.burnDsc(0);
+        vm.stopPrank();
+    }
+
+    function testBurnDsc_ShouldReverts_WhenBurnWithoutMinted() public {
+        vm.startPrank(user);
+        vm.expectRevert();
+        dscEngine.burnDsc(AMOUNT_COLLATERAL_10ether);
+        vm.stopPrank();
+    }
+
+    function testCanBurnDsc() public depositedCollateralAndMintedDsc {
+        vm.startPrank(user);
+        dsc.approve(address(dscEngine), STARTING_BALANCE_100ether);
+        dscEngine.burnDsc(STARTING_BALANCE_100ether);
+        vm.stopPrank();
+        uint256 userBalance = dsc.balanceOf(user);
+        assertEq(userBalance, 0);
     }
 }
