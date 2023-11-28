@@ -9,8 +9,8 @@ contract HelperConfig is Script {
     error HelperConfig__ChainIdNotSupported();
 
     struct NetworkConfig {
-        address wethUsdPriceFeed;
-        address wbtcUsdPriceFeed;
+        address ethUsdPriceFeed;
+        address btcUsdPriceFeed;
         address weth;
         address wbtc;
         uint256 deployerKey;
@@ -35,7 +35,7 @@ contract HelperConfig is Script {
 
     function getOrCreateAnvilNetworkConfig() internal returns (NetworkConfig memory _anvilNetworkConfig) {
         // Check to see if we set an active network config
-        if (activeNetworkConfig.wethUsdPriceFeed != address(0)) {
+        if (activeNetworkConfig.ethUsdPriceFeed != address(0)) {
             return activeNetworkConfig;
         }
         vm.startBroadcast();
@@ -53,9 +53,9 @@ contract HelperConfig is Script {
         vm.stopBroadcast();
         (address anvilAddr, uint256 anvilKey) = makeAddrAndKey("local");
         _anvilNetworkConfig = NetworkConfig({
-            wethUsdPriceFeed: address(ethUsdPriceFeed), // ETH / USD
+            ethUsdPriceFeed: address(ethUsdPriceFeed), // ETH / USD
             weth: address(wethMock),
-            wbtcUsdPriceFeed: address(btcUsdPriceFeed),
+            btcUsdPriceFeed: address(btcUsdPriceFeed),
             wbtc: address(wbtcMock),
             deployerKey: anvilKey,
             initOwner: anvilAddr
@@ -64,8 +64,8 @@ contract HelperConfig is Script {
 
     function getSepoliaNetworkConfig() internal view returns (NetworkConfig memory _sepoliaNotworkConfig) {
         _sepoliaNotworkConfig = NetworkConfig({
-            wethUsdPriceFeed: 0x694AA1769357215DE4FAC081bf1f309aDC325306, // ETH / USD
-            wbtcUsdPriceFeed: 0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43,
+            ethUsdPriceFeed: 0x694AA1769357215DE4FAC081bf1f309aDC325306, // ETH / USD
+            btcUsdPriceFeed: 0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43,
             weth: 0xdd13E55209Fd76AfE204dBda4007C227904f0a81,
             wbtc: 0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063,
             deployerKey: vm.envUint("PRIVATE_KEY"),

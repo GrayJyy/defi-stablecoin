@@ -9,13 +9,14 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {MockFailedMintDSC} from "../mocks/MockFailedMintDSC.sol";
 
 contract DSCEngineTest is Test {
     HelperConfig public helperConfig;
     DSCEngine public dscEngine;
     DecentralizedStableCoin public dsc;
-    address public wethUsdPriceFeed;
-    address public wbtcUsdPriceFeed;
+    address public ethUsdPriceFeed;
+    address public btcUsdPriceFeed;
     address public weth;
     address public wbtc;
     uint256 public deployerKey;
@@ -32,6 +33,7 @@ contract DSCEngineTest is Test {
     uint256 private constant LIQUIDATION_BONUS_10 = 10;
     int256 public constant ETH_USD_PRICE_2000e8 = 2000e8;
     int256 public constant BTC_USD_PRICE_1000e8 = 1000e8;
+    address public constant INITIAL_OWNER = 0xF42f4b5cb102b3f5A180E08E6BA726c0179D172E;
 
     event CollateralDeposited(address indexed user, address tokenCollateralAddr, uint256 amountCollateral);
     event CollateralRedeemed(
@@ -66,7 +68,7 @@ contract DSCEngineTest is Test {
     function setUp() external {
         DeployDSC deployer = new DeployDSC();
         (dsc, dscEngine, helperConfig) = deployer.run();
-        (wethUsdPriceFeed, wbtcUsdPriceFeed, weth, wbtc, deployerKey,) = helperConfig.activeNetworkConfig();
+        (ethUsdPriceFeed, btcUsdPriceFeed, weth, wbtc, deployerKey,) = helperConfig.activeNetworkConfig();
         if (block.chainid == 31337) {
             vm.deal(user, STARTING_BALANCE_100ether); // prank and give user some money
         }
@@ -76,8 +78,8 @@ contract DSCEngineTest is Test {
 
     function testConstructor_ShouldReverts_WhenListLenthIsNotEqual() public {
         tokenAddresses.push(weth);
-        priceFeedAddresses.push(wethUsdPriceFeed);
-        priceFeedAddresses.push(wbtcUsdPriceFeed);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(btcUsdPriceFeed);
         vm.expectRevert(DSCEngine.DSCEngine__TheAddressListLengthNotMatch.selector);
         new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
     }
@@ -85,13 +87,13 @@ contract DSCEngineTest is Test {
     function testConstructor_ShouldSetsListCorrectly_WhenListLenthIsEqual() public {
         tokenAddresses.push(weth);
         tokenAddresses.push(wbtc);
-        priceFeedAddresses.push(wethUsdPriceFeed);
-        priceFeedAddresses.push(wbtcUsdPriceFeed);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(btcUsdPriceFeed);
         DSCEngine engine = new DSCEngine(tokenAddresses, priceFeedAddresses, address(dsc));
         assertEq(engine.getTokenCollateralAddrList(0), weth);
         assertEq(engine.getTokenCollateralAddrList(1), wbtc);
-        assertEq(engine.priceFeeds(weth), wethUsdPriceFeed);
-        assertEq(engine.priceFeeds(wbtc), wbtcUsdPriceFeed);
+        assertEq(engine.priceFeeds(weth), ethUsdPriceFeed);
+        assertEq(engine.priceFeeds(wbtc), btcUsdPriceFeed);
     }
 
     function testGetUsdValue_ShouldCalculatesCorrectly_WhenParamsAreRight() public {
@@ -105,7 +107,7 @@ contract DSCEngineTest is Test {
         uint256 _usdAmountInWei = 1e18;
         uint256 expectedAmount =
             _usdAmountInWei * PRECISION_1e18 / uint256(ETH_USD_PRICE_2000e8) / ADDITIONAL_FEED_PRECISION_1e10;
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(wethUsdPriceFeed);
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(ethUsdPriceFeed);
         (, int256 _price,,,) = priceFeed.latestRoundData();
         uint256 actualAmount = _usdAmountInWei * PRECISION_1e18 / uint256(_price) / ADDITIONAL_FEED_PRECISION_1e10;
         assertEq(actualAmount, expectedAmount);
@@ -171,6 +173,21 @@ contract DSCEngineTest is Test {
         vm.stopPrank();
     }
 
+    function testMintDsc_ShouldReverts_WhenSuccessIsFalse() public {
+        MockFailedMintDSC mockFailedMintDsc = new MockFailedMintDSC(INITIAL_OWNER);
+        tokenAddresses = [weth];
+        priceFeedAddresses = [ethUsdPriceFeed];
+        vm.startPrank(INITIAL_OWNER);
+        DSCEngine _dscEngine = new DSCEngine(tokenAddresses, priceFeedAddresses, address(mockFailedMintDsc));
+        mockFailedMintDsc.transferOwnership(address(_dscEngine));
+        vm.stopPrank();
+        vm.startPrank(user);
+        ERC20Mock(weth).approve(address(_dscEngine), AMOUNT_COLLATERAL_10ether);
+        vm.expectRevert(DSCEngine.DSCEngine__MintFailed.selector);
+        _dscEngine.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL_10ether, STARTING_BALANCE_100ether);
+        vm.stopPrank();
+    }
+
     function testGetUsdValue_ShouldPasses_WhenConditionMatching() public {
         uint256 expectedUsdValue =
             uint256(ETH_USD_PRICE_2000e8) * ADDITIONAL_FEED_PRECISION_1e10 * AMOUNT_COLLATERAL_10ether / PRECISION_1e18;
@@ -219,8 +236,8 @@ contract DSCEngineTest is Test {
     function testPriceFeeds_ShouldGetsCorrectly_WhenItConfigured() public {
         address wethRealAddr = dscEngine.priceFeeds(weth);
         address btcRealAddr = dscEngine.priceFeeds(wbtc);
-        assertEq(wethUsdPriceFeed, wethRealAddr);
-        assertEq(wbtcUsdPriceFeed, btcRealAddr);
+        assertEq(ethUsdPriceFeed, wethRealAddr);
+        assertEq(btcUsdPriceFeed, btcRealAddr);
     }
 
     function testGetTokenCollateralAddrList_ShouldGetsCorrectly_WhenItConfigured() public {

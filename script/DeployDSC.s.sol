@@ -16,17 +16,17 @@ contract DeployDSC is Script {
     function run() external returns (DecentralizedStableCoin dsc, DSCEngine dscEngine, HelperConfig helperConfig) {
         helperConfig = new HelperConfig();
         (
-            address wethUsdPriceFeed,
-            address wbtcUsdPriceFeed,
+            address ethUsdPriceFeed,
+            address btcUsdPriceFeed,
             address weth,
             address wbtc,
             uint256 deployerKey,
             address initOwner
         ) = helperConfig.activeNetworkConfig();
         tokenAddresses = [weth, wbtc];
-        priceFeedAddresses = [wethUsdPriceFeed, wbtcUsdPriceFeed];
-        console.log("wethUsdPriceFeed: %s", wethUsdPriceFeed);
-        console.log("wbtcUsdPriceFeed: %s", wbtcUsdPriceFeed);
+        priceFeedAddresses = [ethUsdPriceFeed, btcUsdPriceFeed];
+        console.log("ethUsdPriceFeed: %s", ethUsdPriceFeed);
+        console.log("btcUsdPriceFeed: %s", btcUsdPriceFeed);
         console.log("weth: %s", weth);
         console.log("wbtc: %s", wbtc);
         vm.startBroadcast(deployerKey);
